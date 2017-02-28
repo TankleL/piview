@@ -1,0 +1,12 @@
+﻿<Window x:Class="piview.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:piview"
+        mc:Ignorable="d"
+        Title="Piview" Height="600" Width="800">
+    <Grid>
+        <Image x:Name="imgShow" Margin="0" Stretch="Fill"/>
+    </Grid>
+</Window>
