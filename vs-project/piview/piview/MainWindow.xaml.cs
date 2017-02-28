@@ -24,6 +24,9 @@ namespace piview
     public partial class MainWindow : Window
     {
         private bool m_showable = false;
+        private int m_imgWidth = 0;
+        private int m_imgHeight = 0;
+        private string m_curdir = String.Empty;
 
         public bool IsShowable()
         {
@@ -89,6 +92,8 @@ namespace piview
                 int range = Convert.ToInt32(ppm_range);
 
                 imgSource = LoadPPM_P3_DATA(streamReader, width, height, range);
+                m_imgWidth = width;
+                m_imgHeight = height;
             }
             else if(ppm_type.Equals("P6"))
             {
@@ -103,6 +108,8 @@ namespace piview
                 int range = Convert.ToInt32(ppm_range);
 
                 imgSource = LoadPPM_P6_DATA(streamReader, width, height, range);
+                m_imgWidth = width;
+                m_imgHeight = height;
             }
 
             return imgSource;
