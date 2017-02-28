@@ -42,17 +42,20 @@ namespace piview
             }
 
             FileStream fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-            StreamReader streamReader = new StreamReader(fileStream, Encoding.Default);
             fileStream.Seek(0, SeekOrigin.Begin);
 
-            ImageSource imgSource = LoadPPM(streamReader);
+            ImageSource imgSource = LoadPPM(fileStream);
+            if(null == imgSource)
+            {
+                MessageBox.Show("Cannot decode this format's image file.", "Error!");
+            }
 
             imgShow.Source = imgSource;
 
             m_showable = true;
         }
 
-        public ImageSource LoadPPM(StreamReader strReader)
+        public ImageSource LoadPPM(FileStream fileStream)
         {
             ImageSource imgSource = null;
 
@@ -60,11 +63,13 @@ namespace piview
             string ppm_wh = null;
             string ppm_range = null;
 
+            StreamReader streamReader = new StreamReader(fileStream, Encoding.Default);
+
             try
             {
-                ppm_type = strReader.ReadLine();
-                ppm_wh = strReader.ReadLine();
-                ppm_range = strReader.ReadLine();
+                ppm_type = streamReader.ReadLine();
+                ppm_wh = streamReader.ReadLine();
+                ppm_range = streamReader.ReadLine();
             }
             catch(Exception)
             {
@@ -83,7 +88,21 @@ namespace piview
                 int height = Convert.ToInt32(imgsize[1]);
                 int range = Convert.ToInt32(ppm_range);
 
-                imgSource = LoadPPM_P3_DATA(strReader, width, height, range);
+                imgSource = LoadPPM_P3_DATA(streamReader, width, height, range);
+            }
+            else if(ppm_type.Equals("P6"))
+            {
+                string[] imgsize = ppm_wh.Split(' ');
+                if (imgsize.Length != 2)
+                {
+                    return null;
+                }
+
+                int width = Convert.ToInt32(imgsize[0]);
+                int height = Convert.ToInt32(imgsize[1]);
+                int range = Convert.ToInt32(ppm_range);
+
+                imgSource = LoadPPM_P6_DATA(streamReader, width, height, range);
             }
 
             return imgSource;
@@ -132,6 +151,73 @@ namespace piview
                     bmp.SetPixel(x, y, System.Drawing.Color.FromArgb((int)fR, (int)fG, (int)fB));
                     ++x;
                 }   
+            }
+
+            imgSource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+
+            return imgSource;
+        }
+
+
+        public ImageSource LoadPPM_P6_DATA(StreamReader strReader, int width, int height, int range)
+        {
+            ImageSource imgSource = null;
+            Bitmap bmp = new Bitmap(width, height);
+
+            float fRange = range;
+            float fR, fG, fB;
+
+            int y = 0;
+            int x = 0;
+
+            byte[] clrbuf = new byte[3];
+            BinaryReader binReader = new BinaryReader(strReader.BaseStream);
+
+            while (true)
+            {
+                byte lf_lable = binReader.ReadByte();
+                if (lf_lable != '\n')
+                    binReader.BaseStream.Seek(-2, SeekOrigin.Current);
+                else
+                    break;
+            }
+           
+
+            while (true)
+            {                
+                try
+                {
+                    clrbuf[0] = binReader.ReadByte();
+                    clrbuf[1] = binReader.ReadByte();
+                    clrbuf[2] = binReader.ReadByte();
+                }
+                catch (Exception)
+                {
+                    break;
+                }
+
+                if (x >= width)
+                {
+                    ++y;
+                    x = 0;
+                }
+
+                if (y >= height)
+                    break;
+              
+
+                fR = clrbuf[0];
+                fG = clrbuf[1];
+                fB = clrbuf[2];
+
+                fR = (fR / fRange) * 255.0f;
+                fG = (fG / fRange) * 255.0f;
+                fB = (fB / fRange) * 255.0f;
+
+                bmp.SetPixel(x, y, System.Drawing.Color.FromArgb((int)fR, (int)fG, (int)fB));
+
+                ++x;
             }
 
             imgSource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
