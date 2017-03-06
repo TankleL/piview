@@ -181,13 +181,23 @@ namespace piview
             byte[] clrbuf = new byte[3];
             BinaryReader binReader = new BinaryReader(strReader.BaseStream);
 
+            binReader.BaseStream.Seek(0, SeekOrigin.Begin);
+            int flCount = 0;
             while (true)
             {
-                byte lf_lable = binReader.ReadByte();
-                if (lf_lable != '\n')
-                    binReader.BaseStream.Seek(-2, SeekOrigin.Current);
-                else
+                if (flCount == 3)
                     break;
+
+                try
+                {
+                    byte lf_lable = binReader.ReadByte();
+                    if (lf_lable == '\n')
+                        ++flCount;
+                }
+                catch(Exception)
+                {
+                    return imgSource;
+                }
             }
            
 
