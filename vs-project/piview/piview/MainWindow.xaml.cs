@@ -27,6 +27,8 @@ namespace piview
         private int m_imgWidth = 0;
         private int m_imgHeight = 0;
         private string m_curdir = String.Empty;
+        private List<string> m_imgList = null;
+        private int m_imgSeq = 0;
 
         public bool IsShowable()
         {
@@ -47,200 +49,98 @@ namespace piview
             FileStream fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
             fileStream.Seek(0, SeekOrigin.Begin);
 
-            ImageSource imgSource = LoadPPM(fileStream);
+            ImageSource imgSource = ImageFileUtils.LoadPPM(out m_imgWidth, out m_imgHeight, fileStream);
             if(null == imgSource)
             {
                 MessageBox.Show("Cannot decode this format's image file.", "Error!");
             }
+            fileStream.Close();
 
             imgShow.Source = imgSource;
 
+            string imgRepoPath = fileName.Substring(0, fileName.LastIndexOf('\\'));
+            imgRepoPath += '\\';
+            m_imgList = ScanImageFiles(imgRepoPath);
+            m_imgSeq = m_imgList.IndexOf(fileName);
+                        
             m_showable = true;
+            Title = "piview - " + fileName;
         }
 
-        public ImageSource LoadPPM(FileStream fileStream)
+        protected override void OnKeyDown(KeyEventArgs e)
         {
-            ImageSource imgSource = null;
+            base.OnKeyDown(e);
 
-            string ppm_type = null;
-            string ppm_wh = null;
-            string ppm_range = null;
-
-            StreamReader streamReader = new StreamReader(fileStream, Encoding.Default);
-
-            try
+            switch(e.Key)
             {
-                ppm_type = streamReader.ReadLine();
-                ppm_wh = streamReader.ReadLine();
-                ppm_range = streamReader.ReadLine();
-            }
-            catch(Exception)
-            {
-                return null;
-            }
+                case Key.Right:
+                    if (m_imgList.Count == 0 || m_imgList.Count == 1)
+                        return;
 
-            if (ppm_type.Equals("P3"))
-            {
-                string[] imgsize = ppm_wh.Split(' ');
-                if(imgsize.Length != 2)
-                {
-                    return null;
-                }
+                    if (m_imgSeq == m_imgList.Count - 1)
+                        m_imgSeq = 0;
+                    else
+                        ++m_imgSeq;
 
-                int width = Convert.ToInt32(imgsize[0]);
-                int height = Convert.ToInt32(imgsize[1]);
-                int range = Convert.ToInt32(ppm_range);
-
-                imgSource = LoadPPM_P3_DATA(streamReader, width, height, range);
-                m_imgWidth = width;
-                m_imgHeight = height;
-            }
-            else if(ppm_type.Equals("P6"))
-            {
-                string[] imgsize = ppm_wh.Split(' ');
-                if (imgsize.Length != 2)
-                {
-                    return null;
-                }
-
-                int width = Convert.ToInt32(imgsize[0]);
-                int height = Convert.ToInt32(imgsize[1]);
-                int range = Convert.ToInt32(ppm_range);
-
-                imgSource = LoadPPM_P6_DATA(streamReader, width, height, range);
-                m_imgWidth = width;
-                m_imgHeight = height;
-            }
-
-            return imgSource;
-        }
-
-        public ImageSource LoadPPM_P3_DATA(StreamReader strReader, int width, int height, int range)
-        {
-            ImageSource imgSource = null;
-
-            Bitmap bmp = new Bitmap(width, height);
-
-            float fRange = range;
-            float fR, fG, fB;
-            string line = null;
-
-            int y = 0;
-            int x = 0;
-            while(null != (line = strReader.ReadLine()))
-            {
-                string[] txtClrs = line.Split(' ');
-                
-                if (txtClrs.Length % 3 != 0)
-                {
-                    return null;
-                }
-                
-                for (int i = 0; i < txtClrs.Length; i += 3)
-                {
-                    if (x >= width)
+                    using (FileStream fileStream = new FileStream(m_imgList[m_imgSeq], FileMode.Open, FileAccess.Read))
                     {
-                        ++y;
-                        x = 0;
+                        fileStream.Seek(0, SeekOrigin.Begin);
+                        ImageSource imgSource = ImageFileUtils.LoadPPM(out m_imgWidth, out m_imgHeight, fileStream);
+                        if (null == imgSource)
+                        {
+                            MessageBox.Show("Cannot decode this format's image file.", "Error!");
+                        }
+                        fileStream.Close();
+
+                        imgShow.Source = imgSource;
+                        Title = "piview - " + m_imgList[m_imgSeq];
+                    }
+                    break;
+
+                case Key.Left:
+                    if (m_imgList.Count == 0 || m_imgList.Count == 1)
+                        return;
+
+                    if (m_imgSeq == 0)
+                        m_imgSeq = m_imgList.Count - 1;
+                    else
+                        --m_imgSeq;
+
+                    using (FileStream fileStream = new FileStream(m_imgList[m_imgSeq], FileMode.Open, FileAccess.Read))
+                    {
+                        fileStream.Seek(0, SeekOrigin.Begin);
+                        ImageSource imgSource = ImageFileUtils.LoadPPM(out m_imgWidth, out m_imgHeight, fileStream);
+                        if (null == imgSource)
+                        {
+                            MessageBox.Show("Cannot decode this format's image file.", "Error!");
+                        }
+                        fileStream.Close();
+
+                        imgShow.Source = imgSource;
+                        Title = "piview - " + m_imgList[m_imgSeq];
                     }
 
-                    if (x >= width && y >= height)
-                        break;
+                    break;
 
-                    fR = Convert.ToInt32(txtClrs[i]);
-                    fG = Convert.ToInt32(txtClrs[i + 1]);
-                    fB = Convert.ToInt32(txtClrs[i + 2]);
-
-                    fR = (fR / fRange) * 255.0f;
-                    fG = (fG / fRange) * 255.0f;
-                    fB = (fB / fRange) * 255.0f;
-
-                    bmp.SetPixel(x, y, System.Drawing.Color.FromArgb((int)fR, (int)fG, (int)fB));
-                    ++x;
-                }   
+                default:
+                    break;
             }
-
-            imgSource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-
-            return imgSource;
         }
 
-
-        public ImageSource LoadPPM_P6_DATA(StreamReader strReader, int width, int height, int range)
+        private List<string> ScanImageFiles(string path)
         {
-            ImageSource imgSource = null;
-            Bitmap bmp = new Bitmap(width, height);
+            List<string> result = new List<string>();
 
-            float fRange = range;
-            float fR, fG, fB;
-
-            int y = 0;
-            int x = 0;
-
-            byte[] clrbuf = new byte[3];
-            BinaryReader binReader = new BinaryReader(strReader.BaseStream);
-
-            binReader.BaseStream.Seek(0, SeekOrigin.Begin);
-            int flCount = 0;
-            while (true)
+            DirectoryInfo dirInfo = new DirectoryInfo(path);
+            foreach(FileInfo fileInfo in dirInfo.GetFiles("*.ppm"))
             {
-                if (flCount == 3)
-                    break;
-
-                try
-                {
-                    byte lf_lable = binReader.ReadByte();
-                    if (lf_lable == '\n')
-                        ++flCount;
-                }
-                catch(Exception)
-                {
-                    return imgSource;
-                }
-            }
-           
-
-            while (true)
-            {                
-                try
-                {
-                    clrbuf[0] = binReader.ReadByte();
-                    clrbuf[1] = binReader.ReadByte();
-                    clrbuf[2] = binReader.ReadByte();
-                }
-                catch (Exception)
-                {
-                    break;
-                }
-
-                if (x >= width)
-                {
-                    ++y;
-                    x = 0;
-                }
-
-                if (y >= height)
-                    break;
-              
-
-                fR = clrbuf[0];
-                fG = clrbuf[1];
-                fB = clrbuf[2];
-
-                fR = (fR / fRange) * 255.0f;
-                fG = (fG / fRange) * 255.0f;
-                fB = (fB / fRange) * 255.0f;
-
-                bmp.SetPixel(x, y, System.Drawing.Color.FromArgb((int)fR, (int)fG, (int)fB));
-
-                ++x;
+                result.Add(fileInfo.FullName);
             }
 
-            imgSource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            if (result.Count <= 0)
+                return null;
 
-            return imgSource;
+            return result;
         }
     }
 }
